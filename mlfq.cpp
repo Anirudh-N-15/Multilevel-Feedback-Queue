@@ -9,6 +9,7 @@
 #define TIME_SLICE 5
 
 using namespace std;
+mutex mtx ;
 
 struct Process{
     string name;
@@ -16,12 +17,7 @@ struct Process{
     int completionTime;
     int burstTime;
 
-    Process(string n, int time){
-        name = n;
-        burstTime = time;
-        remainingTime = time;
-        completionTime = 0;
-    }
+    Process(string n, int time): name(n), burstTime(time), remainingTime(time), completionTime(0) {}
 };
 
 struct customComparator {
@@ -30,50 +26,52 @@ struct customComparator {
     }
 };
 
-void roundRobin(queue<Process> &q0, queue<Process> &q1, queue<Process> &q4, int &currTime ){
-    while(!q0.empty()){
-
+void roundRobin(queue<Process>& q0, queue<Process>& q1, queue<Process>& q4, int& currTime) { 
+    lock_guard<mutex> lock(mtx); 
+    while (!q0.empty()) {
         Process p = q0.front();
         q0.pop();
-        int executionTime = min(TIME_SLICE,p.remainingTime);
+        int executionTime = min(TIME_SLICE, p.remainingTime);
         currTime += executionTime;
         p.remainingTime -= executionTime;
-
-        if(p.remainingTime > 0){
+        if (p.remainingTime > 0) {
             q1.push(p);
-        } else{
-            p.completionTime = currTime ;
-            q4.push(p);
-        }
-    }
-}
-
-void firstComeFirstServe(queue<Process> &q1, priority_queue<Process, vector<Process>, customComparator> &q2, queue<Process> &q4, int &currTime){
-    while(!q1.empty()){
-        Process p = q1.front();
-        q1.pop();
-        int executionTime = min(TIME_SLICE,p.remainingTime);
-        currTime += executionTime;
-        p.remainingTime -= executionTime;
-
-        if(p.remainingTime > 0){
-            q2.push(p);
-        } else{
+        } else {
             p.completionTime = currTime;
             q4.push(p);
         }
     }
 }
 
-void prioritySchedule(priority_queue<Process, vector<Process>, customComparator> &q2, priority_queue<Process, vector<Process>, customComparator> &q3, queue<Process> &q4, int &currTime){
-    while(!q2.empty()){
-        Process p = q2.top();
-        q2.pop();
-        int executionTime = min(TIME_SLICE,p.remainingTime);
+
+void firstComeFirstServe(queue<Process> &q1, priority_queue<Process, vector<Process>, customComparator> &q2, queue<Process> &q4, int &currTime) {
+    lock_guard<mutex> lock(mtx);
+    while (!q1.empty()) {
+        Process p = q1.front();
+        q1.pop();
+        int executionTime = min(TIME_SLICE, p.remainingTime);
         currTime += executionTime;
         p.remainingTime -= executionTime;
 
-        if(p.remainingTime > 0){
+        if (p.remainingTime > 0) {
+            q2.push(p);
+        } else {
+            p.completionTime = currTime;
+            q4.push(p);
+        }
+    }
+}
+
+void prioritySchedule(priority_queue<Process, vector<Process>, customComparator> &q2, priority_queue<Process, vector<Process>, customComparator> &q3, queue<Process> &q4, int &currTime) {
+    lock_guard<mutex> lock(mtx);
+    while (!q2.empty()) {
+        Process p = q2.top();
+        q2.pop();
+        int executionTime = min(TIME_SLICE, p.remainingTime);
+        currTime += executionTime;
+        p.remainingTime -= executionTime;
+
+        if (p.remainingTime > 0) {
             q3.push(p);
         } else {
             p.completionTime = currTime;
@@ -82,15 +80,16 @@ void prioritySchedule(priority_queue<Process, vector<Process>, customComparator>
     }
 }
 
-void shortestJobFirst(priority_queue<Process, vector<Process>, customComparator> &q3, queue<Process> &q0, queue<Process> &q4, int &currTime){
-    while(!q3.empty()){
+void shortestJobFirst(priority_queue<Process, vector<Process>, customComparator> &q3, queue<Process> &q0, queue<Process> &q4, int &currTime) {
+    lock_guard<mutex> lock(mtx);
+    while (!q3.empty()) {
         Process p = q3.top();
         q3.pop();
-        int executionTime = min(TIME_SLICE,p.remainingTime);
+        int executionTime = min(TIME_SLICE, p.remainingTime);
         currTime += executionTime;
         p.remainingTime -= executionTime;
 
-        if(p.remainingTime > 0){
+        if (p.remainingTime > 0) {
             q0.push(p);
         } else {
             p.completionTime = currTime;
@@ -120,14 +119,16 @@ priority_queue<Process, vector<Process>, customComparator> q2, q3;
     }
     cout << endl ;
 
-    cout << "Scheduling Started!" << endl ;
+    cout << "Scheduling Started!(using threads)" << endl ;
     cout << endl ;
 
     while(!q0.empty() || !q1.empty() || !q2.empty() || !q3.empty()){
-        roundRobin(q0, q1, q4,currTime);
-        firstComeFirstServe(q1,q2, q4,currTime);
-        prioritySchedule(q2,q3, q4,currTime);
-        shortestJobFirst(q3,q0,q4,currTime);
+        thread t1(roundRobin, ref(q0), ref(q1), ref(q4), ref(currTime));
+        thread t2(firstComeFirstServe, ref(q1), ref(q2), ref(q4), ref(currTime));
+        thread t3(prioritySchedule, ref(q2), ref(q3), ref(q4), ref(currTime));
+        thread t4(shortestJobFirst, ref(q3), ref(q0), ref(q4), ref(currTime));
+
+        t1.join(), t2.join(), t3.join(), t4.join();
     }
 
     int totalTime =0;

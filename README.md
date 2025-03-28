@@ -60,6 +60,18 @@ xcode-select --install
 
 ---
 
+### **2. Compile the code**
+Using Clang:
+clang++ -std=c++11 -pthread mlfq.cpp -o mlfq
+
+Using gcc:
+g++ -std=c++11 -pthread mlfq.cpp -o mlfq
+
+### **3. Run the executable**
+./mlfq
+
+---
+
 ## **User Input Format**
 When prompted, enter the number of processes and their CPU times:
 
