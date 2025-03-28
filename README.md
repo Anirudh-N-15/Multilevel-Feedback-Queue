@@ -62,13 +62,19 @@ xcode-select --install
 
 ### **2. Compile the code**
 Using Clang:
+```sh
 clang++ -std=c++11 -pthread mlfq.cpp -o mlfq
+```
 
 Using gcc:
+```sh
 g++ -std=c++11 -pthread mlfq.cpp -o mlfq
+```
 
 ### **3. Run the executable**
+```sh
 ./mlfq
+```
 
 ---
 
